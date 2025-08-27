@@ -1,0 +1,25 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: capstone-app
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/nashon11/capstone-gitops.git
+    targetRevision: HEAD
+    path: overlays/dev  # Using dev overlay as an example
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: default
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas
