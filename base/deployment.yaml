@@ -1,10 +1,16 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Rollout
 metadata:
-  name: app-deployment
+  name: capstone-rollout
   namespace: capstone
+  labels:
+    app: capstone-app
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false
+    argocd.argoproj.io/compare-options: IgnoreExtraneous
 spec:
-  replicas: 3        # base replica count (overlays will patch)
+  replicas: 3
+  revisionHistoryLimit: 3
   selector:
     matchLabels:
       app: capstone-app
@@ -12,29 +18,67 @@ spec:
     metadata:
       labels:
         app: capstone-app
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "5000"
     spec:
       containers:
       - name: capstone-container
-        image: nashon11/capstone-app:latest   # or your registry image
+        image: nashon11/capstone-app:latest
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 5000
+          name: http
+          protocol: TCP
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 200m
+            memory: 256Mi
         readinessProbe:
           httpGet:
             path: /
             port: 5000
+            scheme: HTTP
           initialDelaySeconds: 5
           periodSeconds: 10
+          successThreshold: 1
+          failureThreshold: 3
         livenessProbe:
           httpGet:
             path: /
             port: 5000
+            scheme: HTTP
           initialDelaySeconds: 10
           periodSeconds: 20
+          successThreshold: 1
+          failureThreshold: 3
   strategy:
     canary:
+      analysis:
+        templates:
+        - templateName: success-rate
+          clusterScope: false
+        args:
+        - name: service-name
+          value: capstone-app
+        - name: error-rate-threshold
+          value: "5"
+        - name: interval
+          value: "1m"
+      maxUnavailable: 25%
+      maxSurge: 25%
+      canaryMetadata:
+        labels:
+          deployment: canary
+      stableMetadata:
+        labels:
+          deployment: stable
       steps:
-        - setWeight: 10
-        - pause: {duration: 30}
-        - setWeight: 50
-        - pause: {duration: 30}
-        - setWeight: 100
+      - setWeight: 20
+      - pause: { duration: 30s }
+      - setWeight: 50
+      - pause: { duration: 30s }
+      - setWeight: 100

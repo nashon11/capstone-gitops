@@ -1,0 +1,59 @@
+# Ignore these checks for all files
+ignore:
+  # Ignore container resource limits in dev
+  - container-resource-requests
+  - container-resource-limits
+  # Ignore pod probes in dev
+  - pod-probes
+  # Ignore pod disruption budget in dev
+  - pod-disruption-budget
+  # Ignore network policy in dev
+  - network-policy
+  # Ignore pod topology spread constraints in dev
+  - pod-topology-spread-constraints
+  # Ignore pod anti-affinity in dev
+  - pod-anti-affinity
+  # Ignore pod security context in dev
+  - pod-security-context
+  # Ignore container security context in dev
+  - container-security-context
+  # Ignore container image tag in dev
+  - container-image-tag
+  # Ignore container image pull policy in dev
+  - container-image-pull-policy
+  # Ignore container port in dev
+  - container-port
+  # Ignore container liveness probe in dev
+  - container-liveness-probe
+  # Ignore container readiness probe in dev
+  - container-readiness-probe
+  # Ignore container startup probe in dev
+  - container-startup-probe
+  # Ignore container resources in dev
+  - container-resources
+  # Ignore container security context in dev
+  - container-security-context
+  # Ignore container security context read only root filesystem in dev
+  - container-security-context-readonlyrootfilesystem
+  # Ignore container security context run as non root in dev
+  - container-security-context-runasnonroot
+  # Ignore container security context run as user in dev
+  - container-security-context-runasuser
+  # Ignore container security context seccomp profile in dev
+  - container-security-context-seccomp-profile
+  # Ignore container security context capabilities in dev
+  - container-security-context-capabilities
+  # Ignore container security context allow privilege escalation in dev
+  - container-security-context-allow-privilege-escalation
+  # Ignore container security context read only root filesystem in dev
+  - container-security-context-read-only-root-filesystem
+  # Ignore container security context run as non root in dev
+  - container-security-context-run-as-non-root
+  # Ignore container security context run as user in dev
+  - container-security-context-run-as-user
+  # Ignore container security context seccomp profile in dev
+  - container-security-context-seccomp-profile
+  # Ignore container security context capabilities in dev
+  - container-security-context-capabilities
+  # Ignore container security context allow privilege escalation in dev
+  - container-security-context-allow-privilege-escalation
