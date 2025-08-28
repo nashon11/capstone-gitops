@@ -1,10 +1,10 @@
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
 metadata:
   name: app-deployment
   namespace: capstone
 spec:
-  replicas: 2
+  replicas: 3        # base replica count (overlays will patch)
   selector:
     matchLabels:
       app: capstone-app
@@ -15,6 +15,26 @@ spec:
     spec:
       containers:
       - name: capstone-container
-        image: nginx:latest  
+        image: nashon11/capstone-app:latest   # or your registry image
         ports:
-        - containerPort: 80
+        - containerPort: 5000
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 5000
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 5000
+          initialDelaySeconds: 10
+          periodSeconds: 20
+  strategy:
+    canary:
+      steps:
+        - setWeight: 10
+        - pause: {duration: 30}
+        - setWeight: 50
+        - pause: {duration: 30}
+        - setWeight: 100
