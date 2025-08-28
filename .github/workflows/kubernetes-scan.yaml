@@ -1,4 +1,4 @@
-name: Security Scan
+name: Kubernetes Security Scan
 
 on:
   push:
@@ -8,8 +8,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  security-scan:
-    name: Run Security Scan
+  k8s-scan:
+    name: Run Kubernetes Security Scan
     runs-on: ubuntu-latest
     
     steps:
