@@ -15,6 +15,6 @@ spec:
     spec:
       containers:
       - name: capstone-container
-        image: nginx:latest  
+        image: nashon11/capstone-app:v2
         ports:
         - containerPort: 80

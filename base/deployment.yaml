@@ -24,7 +24,7 @@ spec:
     spec:
       containers:
       - name: capstone-container
-        image: nashon11/capstone-app:latest
+        image: nashon11/capstone-app:v2
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 5000
