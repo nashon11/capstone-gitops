@@ -15,6 +15,6 @@ spec:
     spec:
       containers:
       - name: capstone-container
-        image: nashon11/capstone-app:v2
+        image: nashon11/capstone-app:v9999-bad
         ports:
         - containerPort: 80
