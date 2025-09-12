@@ -27,7 +27,7 @@ spec:
         image: nginx:1.20
         imagePullPolicy: IfNotPresent
         ports:
-        - containerPort: 5000
+        - containerPort: 80
           name: http
           protocol: TCP
         resources:
@@ -40,7 +40,7 @@ spec:
         readinessProbe:
           httpGet:
             path: /
-            port: 5000
+            port: 80
             scheme: HTTP
           initialDelaySeconds: 5
           periodSeconds: 10
@@ -49,7 +49,7 @@ spec:
         livenessProbe:
           httpGet:
             path: /
-            port: 5000
+            port: 80
             scheme: HTTP
           initialDelaySeconds: 10
           periodSeconds: 20
@@ -57,28 +57,11 @@ spec:
           failureThreshold: 3
   strategy:
     canary:
-      analysis:
-        templates:
-        - templateName: success-rate
-          clusterScope: false
-        args:
-        - name: service-name
-          value: capstone-app
-        - name: error-rate-threshold
-          value: "5"
-        - name: interval
-          value: "1m"
-      maxUnavailable: 25%
-      maxSurge: 25%
-      canaryMetadata:
-        labels:
-          deployment: canary
-      stableMetadata:
-        labels:
-          deployment: stable
       steps:
       - setWeight: 20
-      - pause: { duration: 30s }
+      - pause:
+          duration: 30s
       - setWeight: 50
-      - pause: { duration: 30s }
+      - pause:
+          duration: 30s
       - setWeight: 100
