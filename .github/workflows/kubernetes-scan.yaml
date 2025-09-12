@@ -77,7 +77,7 @@ jobs:
     - name: Run Trivy vulnerability scanner
       uses: aquasecurity/trivy-action@0.19.0
       with:
-        image-ref: 'nashon11/capstone-app:latest'
+        image-ref: 'nginx:1.20'  # Scan the nginx image we're using
         format: 'sarif'
         output: 'trivy-results.sarif'
         severity: 'CRITICAL,HIGH'

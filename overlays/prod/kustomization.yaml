@@ -4,4 +4,4 @@ resources:
   - ../../base
   - namespace.yaml
 patchesStrategicMerge:
-  - rollout-patch.yaml
+  - replica-patch.yaml
