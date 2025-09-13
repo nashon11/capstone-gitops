@@ -112,6 +112,19 @@ This project demonstrates a GitOps workflow using ArgoCD, Kustomize, and Argo Ro
    - Automated rollback on failure
    - Monitoring and observability
 
+## 🌐 Live Application
+
+Currently, the application runs inside Minikube / Kubernetes local cluster.
+
+To access it locally:
+```bash
+kubectl port-forward svc/capstone-rollout -n capstone 8080:80
+```
+
+Then open in your browser: http://localhost:8080
+
+GitHub Repository for app source code: [capstone-app](https://github.com/yourusername/capstone-app)
+
 ## 🔒 Security
 
 - **Container Scanning**: Trivy scans container images for vulnerabilities
