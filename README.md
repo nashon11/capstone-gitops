@@ -11,6 +11,31 @@ This project demonstrates a GitOps workflow using ArgoCD, Kustomize, and Argo Ro
 - **Security Scanning**: GitHub Actions workflow with Trivy and kube-score
 - **Monitoring**: Prometheus and Grafana integration
 
+## 🔄 CI/CD Workflow
+
+The GitHub Actions workflow (`.github/workflows/ci-cd.yml`) includes these jobs:
+
+1. **Lint and Validate**:
+   - YAML linting
+   - Kubernetes manifest validation
+   - Kustomize build verification
+
+2. **Security Scan**:
+   - Container image scanning with Trivy
+   - Kubernetes manifest analysis with kube-score
+
+3. **Build and Push**:
+   - Builds Docker image
+   - Pushes to DockerHub with `latest` and commit SHA tags
+
+4. **Deploy**:
+   - Updates Kustomize manifests with new image tags
+   - Deploys to Kubernetes using kustomize
+   - Waits for rollout to complete
+
+5. **Notify**:
+   - Sends success/failure notifications to Slack (if configured)
+
 ## 🛠️ Tools Used
 
 - **Kubernetes**: Container orchestration
@@ -46,6 +71,32 @@ This project demonstrates a GitOps workflow using ArgoCD, Kustomize, and Argo Ro
 ├── .kube-score-exclude.yaml
 └── README.md
 ```
+
+## 🔑 Prerequisites
+
+- A Kubernetes cluster with ArgoCD installed
+- DockerHub account (or another container registry)
+- GitHub repository with the code
+
+## 🔧 Setup
+
+### 1. Repository Secrets
+
+Add these secrets to your GitHub repository (Settings > Secrets > Actions):
+
+1. `DOCKERHUB_USERNAME`: Your DockerHub username
+2. `DOCKERHUB_TOKEN`: DockerHub access token with write permissions
+3. `KUBE_CONFIG`: Your Kubernetes configuration (base64 encoded)
+4. `SLACK_WEBHOOK_URL` (optional): For Slack notifications
+
+### 2. Update Configuration
+
+1. In `.github/workflows/ci-cd.yml`, update the `IMAGE_NAME` with your DockerHub username:
+   ```yaml
+   IMAGE_NAME: docker.io/your-dockerhub-username/capstone-app
+   ```
+
+2. Update the Dockerfile if your application has specific requirements.
 
 ## 🚀 Getting Started
 

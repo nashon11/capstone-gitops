@@ -1,0 +1,244 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+env:
+  # Using DockerHub for container registry
+  # IMPORTANT: Set these secrets in your repository settings:
+  # - DOCKERHUB_USERNAME: Your DockerHub username
+  # - DOCKERHUB_TOKEN: Your DockerHub access token with write permissions
+  IMAGE_NAME: docker.io/your-dockerhub-username/capstone-app  # Replace 'your-dockerhub-username' with your actual DockerHub username
+  DOCKERFILE: ./Dockerfile
+  DOCKERFILE_PATH: ./Dockerfile
+  KUBE_NAMESPACE: ${{ github.ref == 'refs/heads/main' && 'production' || 'staging' }}
+  OVERLAY: ${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}
+  KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
+  KUSTOMIZE_VERSION: v5.0.0
+  KUBECTL_VERSION: v1.28.0
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint and Validate
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+        cache: 'pip'
+
+    - name: Install yamllint and kubeval
+      run: |
+        python -m pip install --upgrade pip
+        pip install yamllint kubernetes-validate
+
+    - name: Run yamllint
+      run: yamllint .
+
+    - name: Validate Kubernetes manifests
+      run: |
+        find . -type f \( -name "*.yaml" -o -name "*.yml" \) | \
+        while read file; do 
+          if grep -q "kind:" "$file"; then 
+            echo "Validating $file"
+            kubeval --strict --ignore-missing-schemas "$file" || exit 1
+          fi 
+        done
+
+  test:
+    name: Run Tests
+    needs: lint
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Run unit tests
+      run: |
+        # Add your test commands here
+        echo "Running tests..."
+        # Example: python -m pytest tests/
+
+  security-scan:
+    name: Security Scan
+    needs: lint
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@0.19.0
+      with:
+        image-ref: 'alpine:3.18'  # Update with your base image
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+        severity: 'CRITICAL,HIGH'
+        ignore-unfixed: true
+        exit-code: '1'
+
+  build:
+    name: Build and Push
+    needs: [lint, test, security-scan]
+    runs-on: ubuntu-latest
+    
+    if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop') && github.event_name != 'pull_request'
+    
+    permissions:
+      contents: read
+      packages: write
+      security-events: write
+      
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      with:
+        driver-opts: |
+          image=moby/buildkit:master
+        install: true
+      
+    - name: Extract metadata (tags, labels) for Docker
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.IMAGE_NAME }}
+        tags: |
+          type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
+          type=sha,format=long,prefix=sha-
+          type=ref,event=branch
+          type=ref,event=pr
+    
+    - name: Log in to DockerHub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+    
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: true
+        tags: |
+          ${{ env.IMAGE_NAME }}:latest
+          ${{ env.IMAGE_NAME }}:${{ github.sha }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+  deploy:
+    name: Deploy to ${{ env.KUBE_NAMESPACE }}
+    needs: build
+    runs-on: ubuntu-latest
+    
+    if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop') && github.event_name != 'pull_request'
+    
+    environment: 
+      name: ${{ env.KUBE_NAMESPACE }}
+      url: https://${{ env.OVERLAY }}.example.com  # Update with your actual URL
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Install kubectl and kustomize
+      uses: azure/setup-kubectl@v3
+      with:
+        version: ${{ env.KUBECTL_VERSION }}
+    
+    - name: Configure kubectl
+      run: |
+        mkdir -p ~/.kube
+        echo "${{ secrets.KUBE_CONFIG }}" > kubeconfig.yaml
+        export KUBECONFIG=./kubeconfig.yaml
+        kubectl config use-context ${{ env.KUBE_NAMESPACE }}
+    
+    - name: Install kustomize
+      run: |
+        curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash -s -- ${{ env.KUSTOMIZE_VERSION }} /usr/local/bin/
+        
+    - name: Update image tag in kustomization
+      run: |
+        # Update the image tag in the appropriate overlay
+        cd overlays/${{ env.OVERLAY }}
+        kustomize edit set image ${{ env.IMAGE_NAME }}=${{ env.IMAGE_NAME }}:${{ github.sha }}
+        
+        # Commit the updated kustomization
+        git config --global user.name 'GitHub Actions'
+        git config --global user.email 'actions@github.com'
+        git add kustomization.yaml
+        git commit -m "chore: update image tag to ${{ github.sha }}" || echo "No changes to commit"
+        
+    - name: Push changes
+      run: |
+        git config --global user.name 'GitHub Actions'
+        git config --global user.email 'actions@github.com'
+        
+        # Add and commit changes
+        git add .
+        git diff-index --quiet HEAD || git commit -m "chore: update deployment configuration [skip ci]"
+        
+        # Push changes using the GITHUB_TOKEN
+        git push "https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" HEAD:${{ github.ref }}
+        
+    - name: Deploy with kustomize
+      run: |
+        # Set namespace context
+        kubectl config set-context --current --namespace=${{ env.KUBE_NAMESPACE }}
+        
+        # Apply changes
+        kustomize build overlays/${{ env.OVERLAY }} | kubectl apply -f -
+        
+        # Wait for rollout to complete
+        kubectl rollout status deployment/capstone-app -n ${{ env.KUBE_NAMESPACE }} --timeout=300s
+
+  notify:
+    name: Notify Status
+    needs: [lint, test, security-scan, build, deploy]
+    if: always()
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Check job status
+      if: always()
+      run: |
+        if [[ "${{ needs.lint.result }}" == "success" && 
+              "${{ needs.test.result }}" == "success" && 
+              "${{ needs.security-scan.result }}" == "success" && 
+              "${{ needs.build.result }}" == "success" && 
+              "${{ needs.deploy.result }}" == "success" ]]; then
+          echo "status=success" >> $GITHUB_OUTPUT
+        else
+          echo "status=failed" >> $GITHUB_OUTPUT
+        fi
+      id: check_status
+    
+    - name: Send notification
+      if: always()
+      uses: rtCamp/action-slack-notify@v2
+      env:
+        SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+        SLACK_COLOR: ${{ steps.check_status.outputs.status == 'success' && 'good' || 'danger' }}
+        SLACK_TITLE: "Deployment ${{ steps.check_status.outputs.status == 'success' && 'succeeded' || 'failed' }} for ${{ github.repository }}@${{ github.sha }}"
+        SLACK_MESSAGE: "*Workflow*: ${{ github.workflow }}\n*Status*: ${{ steps.check_status.outputs.status }}\n*Branch*: ${{ github.ref_name }}\n*Commit*: ${{ github.sha }}\n*Run URL*: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
